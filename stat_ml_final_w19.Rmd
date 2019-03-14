@@ -145,8 +145,7 @@ election <- election.raw %>% # should this be called something else
 ```{r, echo = FALSE}
 candidate_bar <- ggplot(data = election_federal, aes(x = candidate, y = votes, fill = candidate)) +
   geom_bar(stat = "identity") +
-  scale_y_log10() +
-    theme(axis.text.x= element_text(angle=-75, size = 8, hjust = .2), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), axis.line = element_line(colour = "black"), plot.title = element_text(hjust = 0.5)) 
+  scale_y_log10()
 
 candidate_bar
 ```
@@ -176,10 +175,11 @@ state_winner <- election_state %>%
     
 # Visualization
 
+
 ## 2016 Election: State Winner Map
   
 ```{r, echo=FALSE}
-states <- map_data("state")
+
 states$fips = state.abb[match(states$region, cbind(tolower(state.name), state.abb))]
 state_winner$fips <- as.factor(state_winner$fips)
 
@@ -197,8 +197,6 @@ ggplot(data = states) +
 ## 2016 Election: County Winner Map
 
 ```{r, echo=FALSE}
-counties = map_data("county")
-
 county.fips <- maps::county.fips
 county.fips$fips <- as.factor(county.fips$fips)
 
@@ -235,8 +233,6 @@ census.mod <- census %>%
   mutate(State = as.character(State)) %>% 
   filter(State != "Puerto Rico" & State != "District of Columbia") %>% 
   mutate(state.abbrev = state.abb[match(state.name,State)])
-  
-  
 
 state.names = rep(census.mod$state.abbrev, length.out = 300)
 
@@ -435,7 +431,8 @@ census.ct.dis  <- dist(scale(census.ct[,-c(1:2)], center=TRUE, scale=TRUE), meth
 
 set.seed(999)
 census.ct.hc = hclust(census.ct.dis, method = "complete")
-census.ct.clusters = cutree(census.ct.hc, 10) %>% 
+census.ct.subgrp = cutree(census.ct.hc, 10)
+census.ct.clusters = census.ct.subgrp %>% 
   as.data.frame()
 census.ct.clusters = census.ct.clusters %>% 
   mutate(Cluster = census.ct.clusters[,1]) %>% 
@@ -455,8 +452,10 @@ set.seed(999)
 ct.pc5.hc = hclust(ct.pc5.dis, method = "complete")
 
 ct.pc5.subgrp = cutree(ct.pc5.hc, 10)
-ct.pc5.clusters = cutree(ct.pc5.hc, 10) %>% 
+
+ct.pc5.clusters = ct.pc5.subgrp %>% 
   as.data.frame()
+
 ct.pc5.clusters <- ct.pc5.clusters %>% 
   mutate(Cluster = ct.pc5.clusters[,1]) %>% 
   select(Cluster) %>% 
@@ -479,15 +478,10 @@ census.clust.dist = sum(census.merge.dis)
 pc5.clust.dist = sum(pc5.merge.dis)
 ```
 
-```{r}
-ct.pc5.subgrp = ct.pc5.subgrp %>% 
-  as.data.frame() %>% 
-  filter()
-```
 
 ```{r}
 
-fviz_cluster(list(data = ct.pc5, cluster = ct.pc5.subgrp))
+pc_cluster_plot = fviz_cluster(list(data = ct.pc5, cluster = ct.pc5.subgrp), geom = "point")
 ```
 
 how do you argue that clustering from one approach is better than another? 
