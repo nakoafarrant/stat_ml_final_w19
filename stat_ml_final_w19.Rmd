@@ -499,7 +499,7 @@ San Mateo county is found in clusters `r sm.census.clust` and `r sm.pc5.clust` f
 
 This qualitative analysis is further supported by a quantitative measure of within cluster variation that is smaller for the PC-based clustering as opposed to that for the raw-census data clustering (`r round(pc5.clust.dist, 6)` versus `r round(census.clust.dist, 7)`).
 
-Based on these results, the hierarchical clustering approach that utilized the first five PC generated from PCA performed on the census data seemed to produce a more appropriate cluster for San Mateo County as opposed to hierarchical clustering based on the raw
+Based on these results, the hierarchical clustering approach that utilized the first five PC generated from PCA performed on the census data seemed to produce a more appropriate cluster for San Mateo County as opposed to hierarchical clustering based on the raw census data.
 
 
 # Classification
@@ -556,7 +556,7 @@ rownames(records) = c("tree","logistic","lasso")
 17. Decision tree: train a decision tree by `cv.tree()`. Prune the resulting tree to minimize misclassification error. Be sure to use the `folds` from above for cross-validation. Visualize the trees before and after pruning. Save training and test errors to a `records` variable. Intepret and discuss the results of the decision tree analysis. Use this plot to tell a story about voting behavior in the US (remember the [NYT infographic?](https://archive.nytimes.com/www.nytimes.com/imagepages/2008/04/16/us/20080416_OBAMA_GRAPHIC.html))
     
 ```{r}
-election.tree = tree(county_winner~.,data = trn.cl)
+election.tree = tree(candidate~.,data = trn.cl)
 draw.tree(tree = election.tree, size = 2, cex = .3, nodeinfo=TRUE)
 
 election.tree.cv = cv.tree(election.tree, FUN = prune.misclass, K = 10, rand = folds)
@@ -576,8 +576,8 @@ predict.tree.test = predict(pruned.election.tree, tst.cl,
                               type = "class")
 
 # calculate the training and test error and input values in records matrix for tree
-records[1,1] = calc_error_rate(predict.tree.train, trn.cl$county_winner)
-records[1,2] = calc_error_rate(predict.tree.test, tst.cl$county_winner)
+records[1,1] = calc_error_rate(predict.tree.train, trn.cl$candidate)
+records[1,2] = calc_error_rate(predict.tree.test, tst.cl$candidate)
 
 ```
 
