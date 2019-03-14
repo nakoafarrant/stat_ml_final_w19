@@ -42,6 +42,7 @@ library(maptree)
 library(class)
 library(glmnet)
 library(ROCR)
+library(factoextra)
 ```
 
 
@@ -232,7 +233,7 @@ census.mod <- census %>%
   mutate(Men = Men/TotalPop) %>% 
   select(c(1, 6:11)) %>% 
   group_by(State) %>% 
-  summarise_at(c(2:7), mean) %>% 
+  summarise_at(vars(c(Hispanic:Pacific)), mean) %>% 
   ungroup() %>% 
   mutate(State = as.character(State)) %>% 
   filter(State != "Puerto Rico" & State != "District of Columbia") %>% 
@@ -310,7 +311,7 @@ census.subct <- census.del %>%
 ```{r, echo=FALSE}
 census.ct <- census.subct %>% 
   mutate_at(c(4:29), funs((weight*.))) %>% 
-  summarise_at(c(3:30), sum) %>% 
+  summarise_at(vars(c(SubcountyPop:weight)), sum) %>% 
   select(-CountyTotal) %>% 
   rename(CountyPop = SubcountyPop)
 ```
