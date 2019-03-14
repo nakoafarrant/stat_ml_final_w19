@@ -1,7 +1,7 @@
 ---
 title: "2016 Election Analysis"
 date: "Due March 20, 2019, midnight"
-author: "Nakoa Farrant, perm: 722447, PSTAT 231"
+author: "Nakoa Farrant, perm: 722447 and Rachel Green, perm: 7244361, PSTAT 231"
 output:
   html_document: default
   pdf_document: default
@@ -372,40 +372,38 @@ head(census.ct)
 
 For this PCA at both the subcounty and county levels, we opted to center and scale the features before running PCA because the magnitude of the different covariates used to generate the principal components can vary considerably. For example, the magnitude of the TotalPop value will inherently be on a different order scale from the documented percentage values. Without this scaling, most of the principal components would be driven by the TotalPop variable that has the highest mean and variance of all the variables. We wanted to center the data such that the effects of different principal components could be effectively compared from a common mean of zero.
 
-After running the PCA, the three features that
+After running the PCA, the three features that have the largest magnitude for PC1 at the subcounty level are IncomePerCap, Professional, and Poverty covariates. The top three covariates with the largest magnitude of PC1 at the county level are IncomePerCap, ChildPoverty, and Poverty.
 
-There are many instances in which PC1 and PC2 have opposite signs at both the subcounty and county levels. There were 33,999 cases of opposite signs in the principal components at the subcounty level, and 1606 instances of opposite signs between the first two PCs at the county level. PC1 is associated with the TotalPop variable, and PC2 is associated with the percentage of men in the given subcounty or county. Instances where these principal components have opposite signs indicate that the TotalPop and percentage of men in that region are uncorrelated.
-
-```{r}
+```{r, echo = FALSE}
 subct.pr = prcomp(census.subct[,-c(1:2)], scale =TRUE, center=TRUE)
 ct.pr = prcomp(census.ct[,-c(1:2)], scale =TRUE, center=TRUE)
 
-subct.pc = subct.pr$rotation[,1:2] %>% 
-  as.data.frame() %>% 
-  mutate(County = census.subct$County) %>% 
-  mutate(State = census.subct$State)
-ct.pc = ct.pr$rotation[,1:2] %>% 
-  as.data.frame() %>% 
-  mutate(County = census.ct$County) %>% 
-  mutate(State = census.ct$State)
+subct.pc = subct.pr$x[,1:2]
+ct.pc = ct.pr$x[,1:2]
 
+subct.phi = subct.pr$rotation[,1:2]
+ct.phi = ct.pr$rotation[,1:2]
 
 ```
 
-```{r}
+There are many instances in which features used in the PCA have different signs for PC1 at both the subcounty and county levels as is highlighted in the two tables below. It is clear that features with the same sign are more correlated than features with opposite signs. This also makes logical sense with the features. For example, at the county level, Income, IncomeErr, IncomePerCap, and IncomePerCapErr all have positive values, which suggests these are highly correlated and we would expect all of these to be correlated. Following that sentiment, the Poverty, ChildPoverty, Minority, and Unemployment features all have negative signs and similar magnitudes suggesting correlation between these features as we unfortunately might expect.
 
-subct.top3 <- subct.pc %>% 
+```{r, echo = FALSE}
+
+subct.top3 <- subct.phi %>% 
+  as.data.frame() %>% 
+  mutate(Variables = row.names(subct.phi)) %>% 
   mutate(PC1 = abs(PC1)) %>% 
   mutate(Level = "Subcounty") %>% 
-  select(PC1, County, State, Level) %>% 
-  group_by(County, State) %>% 
+  select(PC1, Variables, Level) %>% 
   arrange(-PC1)
 
-ct.top3 <- ct.pc %>% 
+ct.top3 <- ct.phi %>% 
+  as.data.frame() %>% 
+  mutate(Variables = row.names(subct.phi)) %>% 
   mutate(PC1 = abs(PC1)) %>% 
   mutate(Level = "County") %>% 
-  select(PC1, County, State, Level) %>% 
-  group_by(County, State) %>% 
+  select(PC1, Variables, Level) %>% 
   arrange(-PC1)
 
 
@@ -415,11 +413,17 @@ kable(top3.merge)
 ```
 
 ```{r}
-subct.opp <- subct.pc %>% 
-  filter(sign(PC1) != sign(PC2))
+subct.opp <- subct.phi %>% 
+  as.data.frame() %>% 
+  mutate(Variables = row.names(subct.phi))
 
-ct.opp <- ct.pc %>% 
-  filter(sign(PC1) != sign(PC2))
+ct.opp <- ct.phi %>% 
+  as.data.frame() %>% 
+  mutate(Variables = row.names(subct.phi))
+
+kable(subct.opp[,c(1,3)])
+
+kable(ct.opp[,c(1,3)])
 ```
 
 15. Determine the minimum number of PCs needed to capture 90% of the variance for both the county and sub-county analyses. Plot the proportion of variance explained (PVE) and cumulative PVE for both county and sub-county analyses.
@@ -440,6 +444,7 @@ par(mfrow=c(1, 2))
 ## Plot proportion of variance explained
 plot(subct.pve, type="l", lwd=3)
 plot(subct.cumulative.pve, type="l", lwd=3)
+abline(h=0.9, col = "red")
 
 ## This will put the next two plots side by side    
 par(mfrow=c(1, 2))
@@ -447,6 +452,7 @@ par(mfrow=c(1, 2))
 ## Plot proportion of variance explained
 plot(ct.pve, type="l", lwd=3)
 plot(ct.cumulative.pve, type="l", lwd=3)
+abline(h=0.9, col = "red")
 ```
 At the county level, at least 15 principal components are required to capture 90% of the variance. At the subcounty level, 17 principal components are needed to represent 90% of the variance in the data.
 
