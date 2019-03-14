@@ -370,40 +370,55 @@ head(census.ct)
 
 14. Run PCA for both county & sub-county level data. Save the first two principle components PC1 and PC2 into a two-column data frame, called `ct.pc` and `subct.pc`, for county and sub-county respectively. Discuss whether you chose to center and scale the features before running PCA and the reasons for your choice.  What are the three features with the largest absolute values of the first principal component? Which features have opposite signs and what does that mean about the correaltion between these features?
 
+For this PCA at both the subcounty and county levels, we opted to center and scale the features before running PCA because the magnitude of the different covariates used to generate the principal components can vary considerably. For example, the magnitude of the TotalPop value will inherently be on a different order scale from the documented percentage values. Without this scaling, most of the principal components would be driven by the TotalPop variable that has the highest mean and variance of all the variables. We wanted to center the data such that the effects of different principal components could be effectively compared from a common mean of zero.
+
+After running the PCA, the three features that
+
+There are many instances in which PC1 and PC2 have opposite signs at both the subcounty and county levels. There were 33,999 cases of opposite signs in the principal components at the subcounty level, and 1606 instances of opposite signs between the first two PCs at the county level. PC1 is associated with the TotalPop variable, and PC2 is associated with the percentage of men in the given subcounty or county. Instances where these principal components have opposite signs indicate that the TotalPop and percentage of men in that region are uncorrelated.
+
 ```{r}
 subct.pr = prcomp(census.subct[,-c(1:2)], scale =TRUE, center=TRUE)
 ct.pr = prcomp(census.ct[,-c(1:2)], scale =TRUE, center=TRUE)
 
-subct.pc = subct.pr$x[,1:2]
-ct.pc = ct.pr$x[,1:2]
+subct.pc = subct.pr$rotation[,1:2] %>% 
+  as.data.frame() %>% 
+  mutate(County = census.subct$County) %>% 
+  mutate(State = census.subct$State)
+ct.pc = ct.pr$rotation[,1:2] %>% 
+  as.data.frame() %>% 
+  mutate(County = census.ct$County) %>% 
+  mutate(State = census.ct$State)
 
 
 ```
 
 ```{r}
 
-subct.top3 <- as.data.frame(subct.pc) %>% 
-  mutate(PC1.subct = abs(PC1)) %>% 
-  select(PC1.subct) %>% 
-  arrange(-PC1.subct) %>% 
-  top_n(3) %>% 
-  mutate(Rank = 1:3)
+subct.top3 <- subct.pc %>% 
+  mutate(PC1 = abs(PC1)) %>% 
+  mutate(Level = "Subcounty") %>% 
+  select(PC1, County, State, Level) %>% 
+  group_by(County, State) %>% 
+  arrange(-PC1)
 
-ct.top3 <- as.data.frame(ct.pc) %>% 
-  mutate(PC1.ct = abs(PC1)) %>% 
-  select(PC1.ct) %>% 
-  arrange(-PC1.ct) %>% 
-  top_n(3) %>% 
-  mutate(Rank = 1:3)
+ct.top3 <- ct.pc %>% 
+  mutate(PC1 = abs(PC1)) %>% 
+  mutate(Level = "County") %>% 
+  select(PC1, County, State, Level) %>% 
+  group_by(County, State) %>% 
+  arrange(-PC1)
 
-top3.merge = merge.data.frame(subct.top3, ct.top3, by="Rank")
+
+top3.merge = rbind(subct.top3[1:3,], ct.top3[1:3,])
+
+kable(top3.merge)
 ```
 
 ```{r}
-subct.opp <- as.data.frame(subct.pc) %>% 
+subct.opp <- subct.pc %>% 
   filter(sign(PC1) != sign(PC2))
 
-ct.opp <- as.data.frame(ct.pc) %>% 
+ct.opp <- ct.pc %>% 
   filter(sign(PC1) != sign(PC2))
 ```
 
