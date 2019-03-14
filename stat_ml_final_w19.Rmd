@@ -440,18 +440,19 @@ census.ct.clusters = census.ct.clusters %>%
   select(Cluster) %>% 
   mutate(County = census.ct$County)
   
-sanmateo.census.cluster = census.ct.clusters$Cluster[which(census.ct.clusters$County=="San Mateo")]
-
 sanmateo.census.cluster.df <- census.ct.clusters %>% 
-  filter(Cluster == sanmateo.census.cluster)
+  filter(Cluster == census.ct.clusters$Cluster[which(census.ct.clusters$County=="San Mateo")])
 
 # repeat using first 5 principal components
-ct.pc5 = ct.pr$x[,1:5]
+ct.pc5 = ct.pr$x[,1:5] %>% 
+  as.data.frame()
 
 ct.pc5.dis <- dist(scale(ct.pc5, center=TRUE, scale=TRUE), method = "euclidean")
 set.seed(999)
 
 ct.pc5.hc = hclust(ct.pc5.dis, method = "complete")
+
+ct.pc5.subgrp = cutree(ct.pc5.hc, 10)
 ct.pc5.clusters = cutree(ct.pc5.hc, 10) %>% 
   as.data.frame()
 ct.pc5.clusters <- ct.pc5.clusters %>% 
@@ -459,10 +460,9 @@ ct.pc5.clusters <- ct.pc5.clusters %>%
   select(Cluster) %>% 
   mutate(County = census.ct$County)
 
-sanmateo.pc5.cluster = ct.pc5.clusters$Cluster[which(ct.pc5.clusters$County=="San Mateo")]
 
 sanmateo.pc5.cluster.df <- ct.pc5.clusters %>% 
-  filter(Cluster == sanmateo.pc5.cluster)
+  filter(Cluster == ct.pc5.clusters$Cluster[which(ct.pc5.clusters$County=="San Mateo")])
 
 ```
 
@@ -473,9 +473,20 @@ census.merge.dis  <- dist(scale(census.ct.merge[,-c(1:3)], center=TRUE, scale=TR
 ct.pc5.merge = left_join(sanmateo.pc5.cluster.df, census.ct, by = "County")
 pc5.merge.dis  <- dist(scale(ct.pc5.merge[,-c(1:3)], center=TRUE, scale=TRUE), method = "euclidean")
 
-# may need to calculate within cluster distance differently
+census.clust.dist = sum(census.merge.dis)
+pc5.clust.dist = sum(pc5.merge.dis)
 ```
 
+```{r}
+ct.pc5.subgrp = ct.pc5.subgrp %>% 
+  as.data.frame() %>% 
+  filter()
+```
+
+```{r}
+
+fviz_cluster(list(data = ct.pc5, cluster = ct.pc5.subgrp))
+```
 
 how do you argue that clustering from one approach is better than another? 
 within cluster variations
