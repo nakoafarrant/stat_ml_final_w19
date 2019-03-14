@@ -498,7 +498,7 @@ San Mateo county is found in clusters `r sm.census.clust` and `r sm.pc5.clust` f
 
 This qualitative analysis is further supported by a quantitative measure of within cluster variation that is smaller for the PC-based clustering as opposed to that for the raw-census data clustering (`r round(pc5.clust.dist, 6)` versus `r round(census.clust.dist, 7)`).
 
-Based on these results, the hierarchical clustering approach that utilized the first five PC generated from PCA performed on the census data seemed to produce a more appropriate cluster for San Mateo County as opposed to hierarchical clustering based on the raw census data.
+Based on these results, the hierarchical clustering approach that utilized the first five PC generated from PCA performed on the census data seemed to produce a more appropriate cluster for San Mateo County as opposed to hierarchical clustering based on the raw
 
 
 # Classification
