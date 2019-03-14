@@ -162,109 +162,66 @@ county_winner <- election %>%
   group_by(fips) %>% 
   mutate(total = sum(votes))%>% 
   mutate(pct = votes/total*100) %>% 
-  filter(pct == max(pct)) %>% 
-  mutate(county_winner = candidate) %>% 
-  select(-candidate) %>% 
-  ungroup() %>% 
-  arrange(fips)
+  top_n(n=1, pct)
 
-state_winner_df <- election_state %>% 
+state_winner <- election_state %>% 
   group_by(state) %>% 
   mutate(total = sum(votes)) %>% 
-  mutate(pct = votes/total) %>% 
-  filter(pct == max(pct)) %>% 
-  mutate(state_winner = candidate) %>% 
-  select(-candidate) %>% 
-  select(fips, state_winner)
+  mutate(pct = votes/total*100) %>% 
+  top_n(n=1, pct)
   
 ```
 
     
 # Visualization
 
-Visualization is crucial for gaining insight and intuition during the data mining process. To that end, we will generate cartographic representations (maps) of the states and counties, and map our data onto these representations.
 
-The R package `ggplot2` can be used to draw maps. Consider the following code.
+## 2016 Election: State Winner Map
+  
+```{r, echo=FALSE}
 
-```{r, message=FALSE}
-states <- map_data("state")
+states$fips = state.abb[match(states$region, cbind(tolower(state.name), state.abb))]
+state_winner$fips <- as.factor(state_winner$fips)
 
-ggplot(data = states) + 
-  geom_polygon(aes(x = long, y = lat, fill = region, group = group), color = "white") + 
-  coord_fixed(1.3) +
-  guides(fill=FALSE)  # color legend is unnecessary and takes too long
+states <- left_join(states, state_winner, by = 'fips')
+
+ggplot(data = states) +
+  geom_polygon(aes(x = long, y = lat, fill = candidate, group = group), color = "white") + 
+  coord_fixed(1.3) + 
+  guides(fill=FALSE)
+
 ```
 
-The variable `states` contains information to draw white polygons, while the fill-colors are determined by `region`.
 
-8. Draw a county-level map by creating `counties = map_data("county")` and color by county.
+
+## 2016 Election: County Winner Map
 
 ```{r, echo=FALSE}
-counties <- map_data("county")
+county.fips <- maps::county.fips
+county.fips$fips <- as.factor(county.fips$fips)
+
+county.fips <- county.fips %>%  
+  separate(polyname, c('region', 'subregion'), sep = ",") 
+
+county.fips = left_join(county.fips, county_winner, by= 'fips')
+
+counties = left_join(counties, county.fips, by=c('region', 'subregion'))
 
 ggplot(data = counties) + 
-  geom_polygon(aes(x = long, y = lat, fill = region, group = group), color = "white") + 
+  geom_polygon(aes(x = long, y = lat, fill = candidate, group = group), color = "white", size = .1) + 
   coord_fixed(1.3) +
-  guides(fill=FALSE)  # color legend is unnecessary and takes too long
+  guides(fill=FALSE)
 ```
 
 
-9. Now color the map by the winning candidate for each state. 
-  First, use `left_join()` to combine the `states` variable and the `state_winner` variable we created earlier. 
-  Note that `left_join()` needs to match up values of states to join the tables.  A call to `left_join()` takes all the values from the first table and looks for matches in the second table. For each match, `left_join()` appends the data from the second table to the matching row in the first; if no matching value is found, it adds missing values:
-  
-  
-```{r}
-states <- states %>% 
-  mutate(fips = state.abb[match(region, tolower(state.name))])
 
-states_joined = left_join(states, state_winner_df, by = "fips")
-
-```
-
-```{r}
-ggplot(data = states_joined) + 
-  geom_polygon(aes(x = long, y = lat, fill = state_winner, group = group), show.legend = T) + 
-  coord_fixed(1.3) +
-  guides(fill=FALSE)  # color legend is unnecessary and takes too long
-```
-
-    Here, we'll be combing the two datasets based on state name.  However, the state names are in different formats in the two tables: e.g. `AZ` vs. `arizona`. Before using `left_join()`, create a common column by creating a new column for `states` named `fips = state.abb[match(some_column, some_function(state.name))]`. Replace `some_column` and `some_function` to complete creation of this new column. Then `left_join()`.  Your figure will look similar to this state level [New York Times map](https://www.nytimes.com/elections/results/president).
-
-
-10. The variable `county` does not have a `fips` value. So we will create one by pooling information from `maps::county.fips`.
-  Split the `polyname` column to `region` and `subregion`. Use `left_join()` to combine `county.fips` into `county`. 
-  Also, `left_join()` previously created variable `county_winner`. 
-  Your figure will look similar to county-level [New York Times map](https://www.nytimes.com/elections/results/president).
-
-```{r}
-county.fips <- maps::county.fips %>% 
-  arrange(fips) %>% 
-  separate(polyname, c("region", "subregion"), extra = "merge")
-
-```
-
-```{r}
-county.joined <- left_join(counties, county.fips, by = "subregion") %>% 
-  mutate(fips = as.factor(fips))
-```
- 
-```{r}
-county.winner.joined <- left_join(county.joined, county_winner, by = "fips")
-```
-
-```{r}
-ggplot(data = county.winner.joined) + 
-  geom_polygon(aes(x = long, y = lat, fill = county_winner, group = group), show.legend = T) + 
-  coord_fixed(1.3) +
-  guides(fill=FALSE)  # color legend is unnecessary and takes too long
-```
 11. Create a visualization of your choice using `census` data. Many exit polls noted that 
     [demographics played a big role in the election](https://fivethirtyeight.com/features/demographics-not-hacking-explain-the-election-results/).
     Use [this Washington Post article](https://www.washingtonpost.com/graphics/politics/2016-election/exit-polls/) 
     and [this R graph gallery](https://www.r-graph-gallery.com/) for ideas and inspiration.
 
-```{r}
+## Minority Composition of Voters by State
+```{r, echo=FALSE}
 
 census.mod <- census %>%
   na.omit() %>% 
@@ -287,30 +244,28 @@ census.tidy <- census.mod %>%
   gather(key = Ethnicity) %>% 
   mutate(State = state.names) %>% 
   mutate(Percent = as.numeric(value))
-  
-```
 
-```{r}
 ggplot(data = census.tidy, aes(x = State, y = Percent, fill = Ethnicity)) + 
   geom_bar(stat = "identity")
 ```
 
-```{r}
+## State Level Winner Shaded by State Population Minority Fraction
+
+```{r, echo=FALSE}
 census.minority <- census.mod %>% 
   mutate(Minority = (Hispanic + Black + Asian + Native + Pacific)/100) %>% 
   mutate(fips = state.abbrev) %>% 
   select(State, fips, Minority)
 
 census.join = left_join(states_joined, census.minority, by = "fips")
-```
 
-
-```{r}
 ggplot(data = census.join) + 
   geom_polygon(aes(x = long, y = lat, fill = state_winner, group = group, alpha = Minority), show.legend = T) + 
   coord_fixed(1.3) +
   guides(fill=FALSE)  # color legend is unnecessary and takes too long
 ```
+
+
 12. The `census` data contains high resolution information (more fine-grained than county-level).  
     In this problem, we aggregate the information into county-level data by 
     computing `TotalPop`-weighted average of each attributes for each county. Create the following variables:
@@ -321,28 +276,28 @@ ggplot(data = census.join) +
       compute `Minority` attribute by combining {Hispanic, Black, Native, Asian, Pacific}, remove these variables after creating `Minority`, remove {`Walk`, `PublicWork`, `Construction`}.  
       _Many columns seem to be related, and, if a set that adds up to 100%, one column will be deleted. E.g., Men and Women comprise 100% of the TotalPop, so we only two of the counts to know the third, and would choose one to delete._  
       
-```{r}
-census.del <- census %>%
+```{r, echo=FALSE}
+
+census.del = census[complete.cases(census),] %>% 
   na.omit() %>% 
-  mutate(Men = Men/TotalPop*100) %>% 
-  mutate(Employed = Employed/TotalPop*100) %>% 
-  mutate(Citizen = Citizen/TotalPop*100) %>% 
+  mutate(Men = Men / TotalPop, Employed = Employed / TotalPop, Citizen = Citizen / TotalPop) %>% 
   mutate(Minority = Hispanic + Black + Native + Asian + Pacific) %>% 
-  select(-c(Hispanic, Black, Native, Asian, Pacific, Walk, PublicWork, Construction, Women))
+  select(-Walk, -PublicWork, -Construction, -Hispanic, -Black, -Native, -Asian, -Pacific, -Women)
 ```
 
     * _Sub-county census data, `census.subct`_: 
       start with `census.del` from above, `group_by()` two attributes {`State`, `County`}, 
       use `add_tally()` to compute `CountyTotal`. Also, compute the weight by `TotalPop/CountyTotal`.
     
-```{r}
+```{r, echo=FALSE}
 
 census.subct <- census.del %>% 
   group_by(State, County) %>% 
   add_tally(TotalPop) %>% 
   mutate(CountyTotal = n) %>% 
   select(-n) %>% 
-  mutate(weight = TotalPop/CountyTotal)
+  mutate(weight = TotalPop/CountyTotal) %>% 
+  rename(SubcountyPop = TotalPop)
 ```
 
 
@@ -350,16 +305,18 @@ census.subct <- census.del %>%
     * _County census data, `census.ct`_: 
       start with `census.subct`, use `summarize_at()` to compute the weighted sum.
     
-```{r}
+```{r, echo=FALSE}
 census.ct <- census.subct %>% 
-  mutate_at(c(3:29), funs((weight*.))) %>% 
-  summarise_at(c(3:30), sum)
+  mutate_at(c(4:29), funs((weight*.))) %>% 
+  summarise_at(c(3:30), sum) %>% 
+  select(-CountyTotal) %>% 
+  rename(CountyPop = SubcountyPop)
 ```
 
     * _Print the first few rows of `census.ct`_: 
     
-```{r}
-head(census.ct)
+```{r, echo=FALSE}
+kable(head(census.ct))
 ```
 
 
@@ -372,7 +329,7 @@ head(census.ct)
 
 For this PCA at both the subcounty and county levels, we opted to center and scale the features before running PCA because the magnitude of the different covariates used to generate the principal components can vary considerably. For example, the magnitude of the TotalPop value will inherently be on a different order scale from the documented percentage values. Without this scaling, most of the principal components would be driven by the TotalPop variable that has the highest mean and variance of all the variables. We wanted to center the data such that the effects of different principal components could be effectively compared from a common mean of zero.
 
-After running the PCA, the three features that have the largest magnitude for PC1 at the subcounty level are IncomePerCap, Professional, and Poverty covariates. The top three covariates with the largest magnitude of PC1 at the county level are IncomePerCap, ChildPoverty, and Poverty.
+
 
 ```{r, echo = FALSE}
 subct.pr = prcomp(census.subct[,-c(1:2)], scale =TRUE, center=TRUE)
@@ -386,7 +343,7 @@ ct.phi = ct.pr$rotation[,1:2]
 
 ```
 
-There are many instances in which features used in the PCA have different signs for PC1 at both the subcounty and county levels as is highlighted in the two tables below. It is clear that features with the same sign are more correlated than features with opposite signs. This also makes logical sense with the features. For example, at the county level, Income, IncomeErr, IncomePerCap, and IncomePerCapErr all have positive values, which suggests these are highly correlated and we would expect all of these to be correlated. Following that sentiment, the Poverty, ChildPoverty, Minority, and Unemployment features all have negative signs and similar magnitudes suggesting correlation between these features as we unfortunately might expect.
+After running the PCA, the three features that have the largest magnitude for PC1 at the subcounty level are IncomePerCap, Professional, and Poverty covariates. The top three covariates with the largest magnitude of PC1 at the county level are IncomePerCap, ChildPoverty, and Poverty.
 
 ```{r, echo = FALSE}
 
@@ -400,7 +357,7 @@ subct.top3 <- subct.phi %>%
 
 ct.top3 <- ct.phi %>% 
   as.data.frame() %>% 
-  mutate(Variables = row.names(subct.phi)) %>% 
+  mutate(Variables = row.names(ct.phi)) %>% 
   mutate(PC1 = abs(PC1)) %>% 
   mutate(Level = "County") %>% 
   select(PC1, Variables, Level) %>% 
@@ -411,15 +368,19 @@ top3.merge = rbind(subct.top3[1:3,], ct.top3[1:3,])
 
 kable(top3.merge)
 ```
-
-```{r}
+There are many instances in which features used in the PCA have different signs for PC1 at both the subcounty and county levels as is highlighted in the two tables below. It is clear that features with the same sign are more correlated than features with opposite signs. This also makes logical sense with the features. For example, at the county level, Income, IncomeErr, IncomePerCap, and IncomePerCapErr all have positive values, which suggests these are highly correlated and we would expect all of these to be correlated. Following that sentiment, the Poverty, ChildPoverty, Minority, and Unemployment features all have negative signs and similar magnitudes suggesting correlation between these features as we unfortunately might expect.
+```{r, echo=FALSE}
 subct.opp <- subct.phi %>% 
   as.data.frame() %>% 
   mutate(Variables = row.names(subct.phi))
 
+subct.opp$PC1 = round(subct.opp$PC1, 4)
+
 ct.opp <- ct.phi %>% 
   as.data.frame() %>% 
-  mutate(Variables = row.names(subct.phi))
+  mutate(Variables = row.names(ct.phi))
+
+ct.opp$PC1 = round(ct.opp$PC1, 4)
 
 kable(subct.opp[,c(1,3)])
 
@@ -428,7 +389,7 @@ kable(ct.opp[,c(1,3)])
 
 15. Determine the minimum number of PCs needed to capture 90% of the variance for both the county and sub-county analyses. Plot the proportion of variance explained (PVE) and cumulative PVE for both county and sub-county analyses.
 
-```{r}
+```{r, echo=FALSE}
 subct.var = subct.pr$sdev^2 # variance is the square of the standard deviation of the PCA output
 subct.pve <- subct.var/sum(subct.var)
 subct.cumulative.pve <- cumsum(subct.pve)
@@ -453,14 +414,18 @@ par(mfrow=c(1, 2))
 plot(ct.pve, type="l", lwd=3)
 plot(ct.cumulative.pve, type="l", lwd=3)
 abline(h=0.9, col = "red")
+
+subct.min.pc = min(which(subct.cumulative.pve > .9))
+ct.min.pc = min(which(ct.cumulative.pve > .9))
 ```
-At the county level, at least 15 principal components are required to capture 90% of the variance. At the subcounty level, 17 principal components are needed to represent 90% of the variance in the data.
+
+At the county level, at least `r ct.min.pc` principal components are required to capture 90% of the variance. At the subcounty level, `r subct.min.pc` principal components are needed to represent 90% of the variance in the data.
 
 # Clustering
 
 16. With `census.ct`, perform hierarchical clustering with complete linkage.  Cut the tree to partition the observations into 10 clusters. Re-run the hierarchical clustering algorithm using the first 5 principal components of `ct.pc` as inputs instead of the original features.  Compare and contrast the results. For both approaches investigate the cluster that contains San Mateo County. Which approach seemed to put San Mateo County in a more appropriate cluster? Comment on what you observe and discuss possible explanations for these observations.
 
-```{r}
+```{r, echo=FALSE}
 
 library(dendextend)
 
@@ -500,6 +465,7 @@ sanmateo.pc5.cluster.df <- ct.pc5.clusters %>%
   filter(Cluster == sanmateo.pc5.cluster)
 
 ```
+
 
 ```{r}
 census.ct.merge = left_join(sanmateo.census.cluster.df, census.ct, by = "County")
