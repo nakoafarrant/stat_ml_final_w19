@@ -175,6 +175,10 @@ state_winner <- election_state %>%
     
 # Visualization
 
+```{r, echo=FALSE}
+states = map_data("state")
+counties = map_data("county")
+```
 
 ## 2016 Election: State Winner Map
   
@@ -255,10 +259,10 @@ census.minority <- census.mod %>%
   mutate(fips = state.abbrev) %>% 
   select(State, fips, Minority)
 
-census.join = left_join(states_joined, census.minority, by = "fips")
+census.join = left_join(states, census.minority, by = "fips")
 
 ggplot(data = census.join) + 
-  geom_polygon(aes(x = long, y = lat, fill = state_winner, group = group, alpha = Minority), show.legend = T) + 
+  geom_polygon(aes(x = long, y = lat, fill = candidate, group = group, alpha = Minority), show.legend = T) + 
   coord_fixed(1.3) +
   guides(fill=FALSE)  # color legend is unnecessary and takes too long
 ```
@@ -380,9 +384,9 @@ ct.opp <- ct.phi %>%
 
 ct.opp$PC1 = round(ct.opp$PC1, 4)
 
-kable(subct.opp[,c(1,3)])
+kable(subct.opp[,1])
 
-kable(ct.opp[,c(1,3)])
+kable(ct.opp[,1])
 ```
 
 15. Determine the minimum number of PCs needed to capture 90% of the variance for both the county and sub-county analyses. Plot the proportion of variance explained (PVE) and cumulative PVE for both county and sub-county analyses.
@@ -439,8 +443,9 @@ census.ct.clusters = census.ct.clusters %>%
   select(Cluster) %>% 
   mutate(County = census.ct$County)
   
+sm.census.clust = census.ct.clusters$Cluster[which(census.ct.clusters$County=="San Mateo")]
 sanmateo.census.cluster.df <- census.ct.clusters %>% 
-  filter(Cluster == census.ct.clusters$Cluster[which(census.ct.clusters$County=="San Mateo")])
+  filter(Cluster == sm.census.clust)
 
 # repeat using first 5 principal components
 ct.pc5 = ct.pr$x[,1:5] %>% 
@@ -461,9 +466,11 @@ ct.pc5.clusters <- ct.pc5.clusters %>%
   select(Cluster) %>% 
   mutate(County = census.ct$County)
 
+sm.pc5.clust = ct.pc5.clusters$Cluster[which(ct.pc5.clusters$County=="San Mateo")]
 
 sanmateo.pc5.cluster.df <- ct.pc5.clusters %>% 
-  filter(Cluster == ct.pc5.clusters$Cluster[which(ct.pc5.clusters$County=="San Mateo")])
+  filter(Cluster == sm.pc5.clust)
+
 
 ```
 
@@ -480,15 +487,19 @@ pc5.clust.dist = sum(pc5.merge.dis)
 
 
 ```{r}
+census_cluster_plot = fviz_cluster(list(data = census.ct[,-c(1:2)], cluster = census.ct.subgrp), geom = "point", main="Hierarchical Clusters from Census Data")
+pc_cluster_plot = fviz_cluster(list(data = ct.pc5, cluster = ct.pc5.subgrp), geom = "point", main = "Hierarchical Clusters from PCA")
 
-pc_cluster_plot = fviz_cluster(list(data = ct.pc5, cluster = ct.pc5.subgrp), geom = "point")
+census_cluster_plot
+pc_cluster_plot
 ```
 
-how do you argue that clustering from one approach is better than another? 
-within cluster variations
- If clustering is perfect, it'll only contain very similar counties. Difficult to validate. Silhouette coefficient - could be hard
+San Mateo county is found in clusters `r sm.census.clust` and `r sm.pc5.clust` for the hierarchical clustering using the census data and first five PC, respectively. Based on the two visualizations of each clustering approach, one can start to evealuate which clustering approach is qualitatively superior. The San Mateo cluster generated using the census data (cluster 2, orange triange) exhibits considerable overlap with other clusters which is indicative of poor clustering. This approach also included 379 counties in the San Mateo cluster. By comparison, the clustering based on principal components data seems to do a better job of isolating the San Mateo county cluster (cluster 5, green diamond), and this approach only included 112 counties in the cluster with San Mateo. This decrease in cluster size likely assisted in reducing variation.
 
-can draw box plot of distances to other cluster
+This qualitative analysis is further supported by a quantitative measure of within cluster variation that is smaller for the PC-based clustering as opposed to that for the raw-census data clustering (`r round(pc5.clust.dist, 6)` versus `r round(census.clust.dist, 7)`).
+
+Based on these results, the hierarchical clustering approach that utilized the first five PC generated from PCA performed on the census data seemed to produce a more appropriate cluster for San Mateo County as opposed to hierarchical clustering based on the raw census data.
+
 
 # Classification
 
