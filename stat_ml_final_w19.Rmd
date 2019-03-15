@@ -610,6 +610,43 @@ The most significant variables in predicting the winninng candidate with a logis
 
 19.  You may notice that you get a warning `glm.fit: fitted probabilities numerically 0 or 1 occurred`.  As we discussed in class, this is an indication that we have perfect separation (some linear combination of variables _perfectly_ predicts the winner).  This is usually a sign that we are overfitting. One way to control overfitting in logistic regression is through regularization.  Use the `cv.glmnet` function from the `glmnet` library to run K-fold cross validation and select the best regularization parameter for the logistic regression under the LASSO penalty.  Reminder: set `alpha=1` to run LASSO.  What are the non-zero coefficients in the LASSO regression for the optimal value of $\lambda$? How do they compare to the unpenalized logistic regression?   Save training and test errors to the `records` variable.
 
+```{r}
+x.trn = model.matrix(candidate~.,trn.cl)[,-1]
+y.trn = trn.cl$candidate
+
+x.tst = model.matrix(candidate~.,tst.cl)[,-1]
+y.tst = tst.cl$candidate
+
+grid = 10^seq(10, -2, length = 100)
+
+lasso.mod = glmnet(x.trn, y.trn %>% as.numeric(), alpha=1, lambda = grid)
+plot(lasso.mod)
+
+set.seed (1)
+cv.out =cv.glmnet(x.trn, y.trn %>% as.numeric(),alpha =1)
+plot(cv.out)
+abline(v = log(cv.out$lambda.min), col="red", lwd=3, lty=2)
+bestlam = cv.out$lambda.min
+lasso.pred.train = predict(lasso.mod, s = bestlam, newx = x.trn)
+lasso.pred.test = predict(lasso.mod, s = bestlam, newx = x.tst)
+
+lasso.mse = mean((lasso.pred.test-y.test)^2)
+
+records[3,1] = calc_error_rate(lasso.pred.train, y.trn)
+records[3,2] = calc_error_rate(lasso.pred.test, y.tst)
+```
+
+```{r}
+x = model.matrix(candidate~.,election.cl)[,-1]
+y = election.cl$candidate %>% as.numeric()
+out=glmnet(x,y,alpha=1,lambda=grid)
+lasso.coef=predict(out,type="coefficients",s=bestlam)[1:20,]
+
+kable(lasso.coef)
+
+```
+
+The non-zero coefficients for the LASSO model with the best lambda are IncomeErr, Service, OtherTransp, 
 
 20.  Compute ROC curves for the decision tree, logistic regression and LASSO logistic regression using predictions on the test data.  Display them on the same plot.  Based on your classification results, discuss the pros and cons of the various methods.  Are the different classifiers more appropriate for answering different kinds of questions about the election?
 
@@ -650,7 +687,9 @@ Some possibilities for further exploration are:
   
   * Use linear regression models to predict the `total` vote for each candidate by county.  Compare and contrast these results with the classification models.  Which do you prefer and why?  How might they complement one another?
     
+
   * Conduct an exploratory analysis of the "purple" counties-- the counties which the models predict Clinton and Trump were roughly equally likely to win.  What is it about these counties that make them hard to predict?
     
+
   * Instead of using the native attributes (the original features), we can use principal components to create new (and lower dimensional) sets of features with which to train a classification model.  This sometimes improves classification performance.  Compare classifiers trained on the original features with those trained on PCA features.  
     
