@@ -326,6 +326,8 @@ kable(head(census.ct))
 13. If you were physically located in the United States on election day for the 2016 presidential election, what state and county were you in? Compare and contrast these county results, demographic information, etc., against the state it is located in.  If you were not in the United States on election day, select a county that appears to stand apart from the ones surrounding it. Do you find anything unusual or surprising?  If not, what do you hypothesise might be the reason for the county and state results?
 
 
+
+
 # Dimensionality reduction
 
 14. Run PCA for both county & sub-county level data. Save the first two principle components PC1 and PC2 into a two-column data frame, called `ct.pc` and `subct.pc`, for county and sub-county respectively. Discuss whether you chose to center and scale the features before running PCA and the reasons for your choice.  What are the three features with the largest absolute values of the first principal component? Which features have opposite signs and what does that mean about the correaltion between these features?
@@ -556,7 +558,7 @@ rownames(records) = c("tree","logistic","lasso")
 17. Decision tree: train a decision tree by `cv.tree()`. Prune the resulting tree to minimize misclassification error. Be sure to use the `folds` from above for cross-validation. Visualize the trees before and after pruning. Save training and test errors to a `records` variable. Intepret and discuss the results of the decision tree analysis. Use this plot to tell a story about voting behavior in the US (remember the [NYT infographic?](https://archive.nytimes.com/www.nytimes.com/imagepages/2008/04/16/us/20080416_OBAMA_GRAPHIC.html))
     
 ```{r}
-election.tree = tree(county_winner~.,data = trn.cl)
+election.tree = tree(candidate~.,data = trn.cl)
 draw.tree(tree = election.tree, size = 2, cex = .3, nodeinfo=TRUE)
 
 election.tree.cv = cv.tree(election.tree, FUN = prune.misclass, K = 10, rand = folds)
@@ -576,18 +578,62 @@ predict.tree.test = predict(pruned.election.tree, tst.cl,
                               type = "class")
 
 # calculate the training and test error and input values in records matrix for tree
-records[1,1] = calc_error_rate(predict.tree.train, trn.cl$county_winner)
-records[1,2] = calc_error_rate(predict.tree.test, tst.cl$county_winner)
+records[1,1] = calc_error_rate(predict.tree.train, trn.cl$candidate)
+records[1,2] = calc_error_rate(predict.tree.test, tst.cl$candidate)
 
 ```
 
 18. Run a logistic regression to predict the winning candidate in each county.  Save training and test errors to the `records` variable.  What are the significant variables? Are these consistent with what you observed in the decision tree analysis? Interpret the meaning of a couple of the significant coefficients in terms of a unit change in the variables. Did your particular county (from question 13) results match the predicted results?  
+
+```{r}
+
+candidate_logistic <- glm(candidate~.,data = trn.cl, family = binomial)
+
+summary(candidate_logistic)
+
+predict.logistic.train = predict(candidate_logistic, trn.cl, 
+                               type = "response")
+predict.logistic.test = predict(candidate_logistic, tst.cl, 
+                              type = "response")
+
+# calculate the training and test error and input values in records matrix for tree
+records[2,1] = calc_error_rate(predict.logistic.train, trn.cl$candidate)
+records[2,2] = calc_error_rate(predict.logistic.test, tst.cl$candidate)
+
+```
+The most significant variables in predicting the winninng candidate with a logistic function are Citizen, Professional, Service, Production, Drive, Employed, Private Work and Unemploymet each with a p ~ 0. Other variables that were quite signficant include White, IncomePerCap, Carpool, and FamilyWork with a p <0.001 as well as Office with a p < 0.01 and Income with a p < 0.05. It seems that many of the variables are significant, which makes sense as we have a perfect separation in our result. In the decision tree we see that the main splitting variable was Transit where the majority of nodes predicting Trump fell to the left side and the majority of nodes predicting Clinton fell to the right side. Transit in the logistic model, on the other hand, was not a signficiant predictor. White was used in both models in the second tier of the decision tree and a relatively strong predictor in the logsitic model. CountyPop was used to make the second split in the right side of the tree but was not a significant predictor in the logistic model. This may be because as we can see in the tree only very large counties would predict Hillary while there was more variation in the medium to small counties. Professional and Production were two variables that were consistent between the decision tree and logsitic regression analysis. The production variable, however, was an end node in the decision tree that resulted in two outputs of Trump and therefore was not very helpful at distinguishing between the candidates. 
+
+
+**talk about home county...
+
 
 
 19.  You may notice that you get a warning `glm.fit: fitted probabilities numerically 0 or 1 occurred`.  As we discussed in class, this is an indication that we have perfect separation (some linear combination of variables _perfectly_ predicts the winner).  This is usually a sign that we are overfitting. One way to control overfitting in logistic regression is through regularization.  Use the `cv.glmnet` function from the `glmnet` library to run K-fold cross validation and select the best regularization parameter for the logistic regression under the LASSO penalty.  Reminder: set `alpha=1` to run LASSO.  What are the non-zero coefficients in the LASSO regression for the optimal value of $\lambda$? How do they compare to the unpenalized logistic regression?   Save training and test errors to the `records` variable.
 
 
 20.  Compute ROC curves for the decision tree, logistic regression and LASSO logistic regression using predictions on the test data.  Display them on the same plot.  Based on your classification results, discuss the pros and cons of the various methods.  Are the different classifiers more appropriate for answering different kinds of questions about the election?
+
+```{r}
+
+pred.tree <- prediction(predict.tree.test[,2], trn.cl$candidate)
+perf.tree <- performance(pred.tree, "tpr", "fpr")
+
+pred.logistic = prediction(predict.logistic.test, trn.cl$candidate)
+perf.logistic <- performance(pred.logistic, "tpr", "fpr")
+
+perf.tree@x.name = perf.logistic@x.name= "False Positive Rate"
+perf.tree@y.name = perf.logistic@y.name= "True Positive Rate"
+
+# plot the two ROC curves on the same plot
+plot(perf.tree, type = "l", col = "red")
+par(new=TRUE)
+plot(perf.logistic, type="l", col = "blue")
+
+legend("bottomright", legend=c("Tree", "Logistic"), col=c("red", "blue"), lty=1:2, cex=0.8)
+title("ROC", cex = 0.8)
+
+```
+
 
 
 # Taking it further
