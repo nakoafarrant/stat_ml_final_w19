@@ -294,6 +294,8 @@ census.del = census[complete.cases(census),] %>%
   select(-Walk, -PublicWork, -Construction, -Hispanic, -Black, -Native, -Asian, -Pacific, -Women)
 ```
 
+
+
     * _Sub-county census data, `census.subct`_: 
       start with `census.del` from above, `group_by()` two attributes {`State`, `County`}, 
       use `add_tally()` to compute `CountyTotal`. Also, compute the weight by `TotalPop/CountyTotal`.
@@ -316,7 +318,7 @@ census.subct <- census.del %>%
     
 ```{r, echo=FALSE}
 census.ct <- census.subct %>% 
-  mutate_at(c(4:29), funs((weight*.))) %>% 
+  mutate_at(vars(c(SubcountyPop:CountyTotal)), funs((weight*.))) %>% 
   summarise_at(vars(c(SubcountyPop:weight)), sum) %>% 
   select(-CountyTotal) %>% 
   rename(CountyPop = SubcountyPop)
@@ -356,13 +358,13 @@ ct.phi = ct.pr$rotation[,1:2]
 
 ```{r}
 
-kable(subct.pc[order(abs(pr_subct$rotation[,1]), decreasing=TRUE), ], col.names = c("PC1 Ordered", "PC2"), caption = "Subcounty PCA Loadings")  %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width=FALSE) %>% scroll_box(width = "100%")
+kable(subct.pc[order(abs(subct.pr$rotation[,1]), decreasing=TRUE), ], col.names = c("PC1 Ordered", "PC2"), caption = "Subcounty PCA Loadings")  %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width=FALSE) %>% scroll_box(width = "100%")
 
-kable(subct.pc[order(abs(pr_subct$rotation[,2]), decreasing=TRUE), ], col.names = c("PC1", "PC2 Ordered"), caption = "Subcounty PCA Loadings")  %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width=FALSE) %>% scroll_box(width = "100%")
+kable(subct.pc[order(abs(subct.pr$rotation[,2]), decreasing=TRUE), ], col.names = c("PC1", "PC2 Ordered"), caption = "Subcounty PCA Loadings")  %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width=FALSE) %>% scroll_box(width = "100%")
 
-kable(ct.pc[order(abs(pr_ct$rotation[,1]), decreasing=TRUE), ], col.names = c("PC1 Ordered", "PC2"), caption = "County PCA Loadings")  %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width=FALSE) %>% scroll_box(width = "100%")
+kable(ct.pc[order(abs(ct.pr$rotation[,1]), decreasing=TRUE), ], col.names = c("PC1 Ordered", "PC2"), caption = "County PCA Loadings")  %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width=FALSE) %>% scroll_box(width = "100%")
 
-kable(ct.pc[order(abs(pr_ct$rotation[,2]), decreasing=TRUE), ], col.names = c("PC1", "PC2 Ordered"), caption = "County PCA Loadings")  %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width=FALSE) %>% scroll_box(width = "100%")
+kable(ct.pc[order(abs(ct.pr$rotation[,2]), decreasing=TRUE), ], col.names = c("PC1", "PC2 Ordered"), caption = "County PCA Loadings")  %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width=FALSE) %>% scroll_box(width = "100%")
 ```
 
 After running the PCA, the three features that have the largest magnitude for PC1 at the subcounty level are IncomePerCap, Professional, and Poverty covariates. The top three covariates with the largest magnitude of PC1 at the county level are IncomePerCap, ChildPoverty, and Poverty.
@@ -549,6 +551,7 @@ election.meta <- election.cl %>% select(c(county, fips, state, votes, pct, total
 
 ## save predictors and class labels
 election.cl = election.cl %>% select(-c(county, fips, state, votes, pct, total))
+
 ```
 
 Using the following code, partition data into 80% training and 20% testing:
@@ -601,9 +604,9 @@ draw.tree(tree = pruned.election.tree, size = 2, cex = .3, nodeinfo=TRUE)
 
 ```{r, echo=FALSE}
 predict.tree.train = predict(pruned.election.tree, trn.cl, 
-                               type = "vector")
+                               type = "class")
 predict.tree.test = predict(pruned.election.tree, tst.cl, 
-                              type = "vector")
+                              type = "class")
 
 # calculate the training and test error and input values in records matrix for tree
 records[1,1] = calc_error_rate(predict.tree.train, trn.cl$candidate)
@@ -617,18 +620,24 @@ records[1,2] = calc_error_rate(predict.tree.test, tst.cl$candidate)
 
 candidate_logistic <- glm(candidate~.,data = trn.cl, family = binomial)
 
-summary(candidate_logistic)
+#summary(candidate_logistic)
 
-predict.logistic.train = predict(candidate_logistic, trn.cl, 
-                               type = "response")
-predict.logistic.test = predict(candidate_logistic, tst.cl, 
-                              type = "response")
+predict.logistic.train = predict(candidate_logistic, trn.cl, type = "response") %>% 
+  as.data.frame()
 
-# calculate the training and test error and input values in records matrix for tree
-records[2,1] = calc_error_rate(predict.logistic.train, trn.cl$candidate)
-records[2,2] = calc_error_rate(predict.logistic.test, tst.cl$candidate)
+predict.logistic.train = mutate(predict.logistic.train, candidate = factor(ifelse(predict.logistic.train[,1] > 0.5, "Hillary Clinton", "Donald Trump"),
+                                    levels=c(" None of these candidates", "Alyson Kennedy",            "Bradford Lyttle", "Chris Keniston","Dan Vacek", "Darrell Castle", "Donald Trump", "Emidio Soltysik", "Evan McMullin", "Frank Atwood", "Gary Johnson", "Gloria La Riva", "Hillary Clinton", "Jerry White", "Jill Stein", "Jim Hedges", "Joseph Maldonado", "Kyle Kopitke", "Laurence Kotlikoff", "Lynn Kahn", "Michael Maturen", "Mike Smith", "Monica Moorehead", "Peter Skewes", "Princess Jacob", "Richard Duncan", "Rocky De La Fuente", "Rocky Giordani", "Rod Silva", "Ryan Scott", "Scott Copeland", "Tom Hoefling")))
 
+predict.logistic.test = predict(candidate_logistic, tst.cl, type = "response") %>% 
+  as.data.frame()
+
+predict.logistic.test= mutate(predict.logistic.test, candidate = factor(ifelse(predict.logistic.test[,1] > 0.5, "Hillary Clinton", "Donald Trump"),
+                                    levels=c(" None of these candidates", "Alyson Kennedy",            "Bradford Lyttle", "Chris Keniston","Dan Vacek", "Darrell Castle", "Donald Trump", "Emidio Soltysik", "Evan McMullin", "Frank Atwood", "Gary Johnson", "Gloria La Riva", "Hillary Clinton", "Jerry White", "Jill Stein", "Jim Hedges", "Joseph Maldonado", "Kyle Kopitke", "Laurence Kotlikoff", "Lynn Kahn", "Michael Maturen", "Mike Smith", "Monica Moorehead", "Peter Skewes", "Princess Jacob", "Richard Duncan", "Rocky De La Fuente", "Rocky Giordani", "Rod Silva", "Ryan Scott", "Scott Copeland", "Tom Hoefling")))
+
+records[2,1] = calc_error_rate(predict.logistic.train$candidate, trn.cl$candidate)
+records[2,2] = calc_error_rate(predict.logistic.test$candidate, tst.cl$candidate)
 ```
+
 The most significant variables in predicting the winninng candidate with a logistic function are Citizen, Professional, Service, Production, Drive, Employed, Private Work and Unemploymet each with a p ~ 0. Other variables that were quite signficant include White, IncomePerCap, Carpool, and FamilyWork with a p <0.001 as well as Office with a p < 0.01 and Income with a p < 0.05. It seems that many of the variables are significant, which makes sense as we have a perfect separation in our result. In the decision tree we see that the main splitting variable was Transit where the majority of nodes predicting Trump fell to the left side and the majority of nodes predicting Clinton fell to the right side. Transit in the logistic model, on the other hand, was not a signficiant predictor. White was used in both models in the second tier of the decision tree and a relatively strong predictor in the logsitic model. CountyPop was used to make the second split in the right side of the tree but was not a significant predictor in the logistic model. This may be because as we can see in the tree only very large counties would predict Hillary while there was more variation in the medium to small counties. Professional and Production were two variables that were consistent between the decision tree and logsitic regression analysis. The production variable, however, was an end node in the decision tree that resulted in two outputs of Trump and therefore was not very helpful at distinguishing between the candidates. 
 
 
@@ -638,30 +647,33 @@ The most significant variables in predicting the winninng candidate with a logis
 
 19.  You may notice that you get a warning `glm.fit: fitted probabilities numerically 0 or 1 occurred`.  As we discussed in class, this is an indication that we have perfect separation (some linear combination of variables _perfectly_ predicts the winner).  This is usually a sign that we are overfitting. One way to control overfitting in logistic regression is through regularization.  Use the `cv.glmnet` function from the `glmnet` library to run K-fold cross validation and select the best regularization parameter for the logistic regression under the LASSO penalty.  Reminder: set `alpha=1` to run LASSO.  What are the non-zero coefficients in the LASSO regression for the optimal value of $\lambda$? How do they compare to the unpenalized logistic regression?   Save training and test errors to the `records` variable.
 
+
+
+
 ```{r, echo=FALSE}
 x.trn = model.matrix(candidate~.,trn.cl)[,-1]
-y.trn = trn.cl$candidate
+y.trn = mutate(trn.cl, candidate = ifelse(candidate == "Donald Trump", 0, 1)) %>% 
+  select(candidate)
 
 x.tst = model.matrix(candidate~.,tst.cl)[,-1]
-y.tst = tst.cl$candidate
+y.tst = mutate(tst.cl, candidate = ifelse(candidate == "Donald Trump", 0, 1)) %>% 
+  select(candidate)
 
 grid = 10^seq(10, -2, length = 100)
 
-lasso.mod = glmnet(x.trn, y.trn %>% as.numeric(), alpha=1, lambda = grid)
+lasso.mod = glmnet(x.trn, y.trn$candidate, family="binomial", alpha=1, lambda = grid)
 plot(lasso.mod)
 
 set.seed (1)
-cv.out =cv.glmnet(x.trn, y.trn %>% as.numeric(),alpha =1)
+cv.out =cv.glmnet(x.trn, y.trn$candidate, family="binomial", alpha =1, nfolds = nfold, foldid = folds)
 plot(cv.out)
-abline(v = log(cv.out$lambda.min), col="red", lwd=3, lty=2)
+abline(v = log(cv.out$lambda.min), col="green", lwd=3, lty=2)
 bestlam = cv.out$lambda.min
-lasso.pred.train = predict(lasso.mod, s = bestlam, newx = x.trn)
-lasso.pred.test = predict(lasso.mod, s = bestlam, newx = x.tst)
+predict.lasso.train = predict(lasso.mod, s = bestlam, newx = x.trn, type = "class")
+predict.lasso.test = predict(lasso.mod, s = bestlam, newx = x.tst, type = "class")
 
-lasso.mse = mean((lasso.pred.test-y.tst)^2)
-
-records[3,1] = calc_error_rate(lasso.pred.train, y.trn)
-records[3,2] = calc_error_rate(lasso.pred.test, y.tst)
+records[3,1] = calc_error_rate(predict.lasso.train, y.trn)
+records[3,2] = calc_error_rate(predict.lasso.test, y.tst)
 ```
 
 ```{r, echo=FALSE}
@@ -678,25 +690,35 @@ The non-zero coefficients for the LASSO model are White, Citizen, Poverty, Child
 
 20.  Compute ROC curves for the decision tree, logistic regression and LASSO logistic regression using predictions on the test data.  Display them on the same plot.  Based on your classification results, discuss the pros and cons of the various methods.  Are the different classifiers more appropriate for answering different kinds of questions about the election?
 
+
 ```{r, echo=FALSE}
 
 kable(records, col.names = c("Training Error", "Test Error"), caption = "Summary of Training and Test Errors Associated with Different Classification Models")  %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width=FALSE) %>% scroll_box(width = "100%")
 
-pred.tree <- prediction(predict.tree.train, trn.cl$candidate)
+pred.tree <- prediction(as.numeric(predict.tree.test), as.numeric(tst.cl$candidate))
 perf.tree <- performance(pred.tree, "tpr", "fpr")
 
-pred.logistic = prediction(predict.logistic.test, trn.cl$candidate)
+pred.logistic = prediction(as.numeric(predict.logistic.test$candidate), as.numeric(tst.cl$candidate))
 perf.logistic <- performance(pred.logistic, "tpr", "fpr")
 
-perf.tree@x.name = perf.logistic@x.name= "False Positive Rate"
-perf.tree@y.name = perf.logistic@y.name= "True Positive Rate"
+predict.lasso.test = predict.lasso.test %>% as.data.frame()
+predict.lasso.test = mutate(predict.lasso.test, candidate = factor(ifelse(predict.lasso.test[,1] == "0", "Donald Trump", "Hillary Clinton"))) %>% 
+  select(candidate)
+
+pred.lasso = prediction(as.numeric(predict.lasso.test$candidate), as.numeric(tst.cl$candidate))
+perf.lasso <- performance(pred.lasso, "tpr", "fpr")
+
+perf.tree@x.name = perf.logistic@x.name= perf.lasso@x.name="False Positive Rate"
+perf.tree@y.name = perf.logistic@y.name= perf.lasso@y.name="True Positive Rate"
 
 # plot the two ROC curves on the same plot
-plot(perf.tree, type = "l", col = "red")
+plot(perf.tree, type = "l", col = "black")
 par(new=TRUE)
-plot(perf.logistic, type="l", col = "blue")
+plot(perf.logistic, type="l", col = "blue", lty=2)
+par(new=TRUE)
+plot(perf.lasso, type="l", col = "red", lty=2)
 
-legend("bottomright", legend=c("Tree", "Logistic"), col=c("red", "blue"), lty=1:2, cex=0.8)
+legend("bottomright", legend=c("Tree", "Logistic", "Lasso"), col=c("black", "blue", "red"), lty=1:3, cex=0.8)
 title("ROC", cex = 0.8)
 
 ```
