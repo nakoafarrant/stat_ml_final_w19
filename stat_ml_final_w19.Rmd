@@ -328,7 +328,8 @@ census.ct <- census.subct %>%
     * _Print the first few rows of `census.ct`_: 
     
 ```{r, echo=FALSE}
-kable(head(census.ct))
+kable(head(census.ct), col.names = colnames(census.ct), caption = "Start of Census Data")  %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width=FALSE) %>% scroll_box(width = "100%")
+
 ```
 
 
