@@ -144,9 +144,13 @@ election <- election.raw %>% # should this be called something else
 6. How many named presidential candidates were there in the 2016 election? Draw a bar chart of all votes received by each candidate.  You can split this into multiple plots or may prefer to plot the results on the log scale.  Either way, the results should be clear and legible!
 
 ```{r, echo = FALSE}
-candidate_bar <- ggplot(data = election_federal, aes(x = candidate, y = votes, fill = candidate)) +
-  geom_bar(stat = "identity") +
-  scale_y_log10()
+
+  
+candidate_bar <- ggplot(election_federal, aes(x=reorder(candidate, -votes), y=votes)) + 
+  geom_bar(stat="identity", fill = "#56B4E9") + 
+  scale_y_log10()+
+  labs(title='Candidate National Votes', x = 'Candidate Name', y = 'Vote Count') +
+  theme(axis.text.x= element_text(angle=-75, size = 8, hjust = .2), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), axis.line = element_line(colour = "black"), plot.title = element_text(hjust = 0.5)) 
 
 candidate_bar
 ```
@@ -249,7 +253,9 @@ census.tidy <- census.mod %>%
   mutate(Percent = as.numeric(value))
 
 ggplot(data = census.tidy, aes(x = State, y = Percent, fill = Ethnicity)) + 
-  geom_bar(stat = "identity")
+  geom_bar(stat = "identity") +
+  labs(title='Ethnic Demographics By State in 2016 Election', x = 'State', y = 'Percent of Population') +
+  theme(axis.text.x= element_text(angle=-75, size = 8, hjust = .2), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), axis.line = element_line(colour = "black"), plot.title = element_text(hjust = 0.5)) 
 ```
 
 ## State Level Winner Shaded by State Population Minority Fraction
@@ -348,6 +354,17 @@ ct.phi = ct.pr$rotation[,1:2]
 
 ```
 
+```{r}
+
+kable(subct.pc[order(abs(pr_subct$rotation[,1]), decreasing=TRUE), ], col.names = c("PC1 Ordered", "PC2"), caption = "Subcounty PCA Loadings")  %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width=FALSE) %>% scroll_box(width = "100%")
+
+kable(subct.pc[order(abs(pr_subct$rotation[,2]), decreasing=TRUE), ], col.names = c("PC1", "PC2 Ordered"), caption = "Subcounty PCA Loadings")  %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width=FALSE) %>% scroll_box(width = "100%")
+
+kable(ct.pc[order(abs(pr_ct$rotation[,1]), decreasing=TRUE), ], col.names = c("PC1 Ordered", "PC2"), caption = "County PCA Loadings")  %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width=FALSE) %>% scroll_box(width = "100%")
+
+kable(ct.pc[order(abs(pr_ct$rotation[,2]), decreasing=TRUE), ], col.names = c("PC1", "PC2 Ordered"), caption = "County PCA Loadings")  %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width=FALSE) %>% scroll_box(width = "100%")
+```
+
 After running the PCA, the three features that have the largest magnitude for PC1 at the subcounty level are IncomePerCap, Professional, and Poverty covariates. The top three covariates with the largest magnitude of PC1 at the county level are IncomePerCap, ChildPoverty, and Poverty.
 
 ```{r, echo = FALSE}
@@ -371,7 +388,7 @@ ct.top3 <- ct.phi %>%
 
 top3.merge = rbind(subct.top3[1:3,], ct.top3[1:3,])
 
-kable(top3.merge)
+kable(top3.merge, col.names = c("PC1", "Feature", "Administrative Level"), caption = "County & Subcounty PC1 Top 3 Absolute Loadings")  %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width=FALSE) %>% scroll_box(width = "100%")
 ```
 There are many instances in which features used in the PCA have different signs for PC1 at both the subcounty and county levels as is highlighted in the two tables below. It is clear that features with the same sign are more correlated than features with opposite signs. This also makes logical sense with the features. For example, at the county level, Income, IncomeErr, IncomePerCap, and IncomePerCapErr all have positive values, which suggests these are highly correlated and we would expect all of these to be correlated. Following that sentiment, the Poverty, ChildPoverty, Minority, and Unemployment features all have negative signs and similar magnitudes suggesting correlation between these features as we unfortunately might expect.
 ```{r, echo=FALSE}
@@ -380,17 +397,21 @@ subct.opp <- subct.phi %>%
   mutate(Variables = row.names(subct.phi))
 
 subct.opp$PC1 = round(subct.opp$PC1, 4)
+subct.opp$PC2 = round(subct.opp$PC1, 4)
 
 ct.opp <- ct.phi %>% 
   as.data.frame() %>% 
   mutate(Variables = row.names(ct.phi))
 
 ct.opp$PC1 = round(ct.opp$PC1, 4)
+ct.opp$PC2 = round(ct.opp$PC2, 4)
 
-kable(subct.opp[,1])
+kable(subct.opp[,c(1:3)], col.names = c("PC1", "PC2", "Feature"), caption = "Subcounty Comparison of Signs for Loadings of Different Features")  %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width=FALSE) %>% scroll_box(width = "100%")
 
-kable(ct.opp[,1])
+kable(ct.opp[,c(1:3)], col.names = c("PC1", "PC2", "Feature"), caption = "County Comparison of Signs for Loadings of Different Features")  %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width=FALSE) %>% scroll_box(width = "100%")
 ```
+
+
 
 15. Determine the minimum number of PCs needed to capture 90% of the variance for both the county and sub-county analyses. Plot the proportion of variance explained (PVE) and cumulative PVE for both county and sub-county analyses.
 
@@ -410,7 +431,8 @@ par(mfrow=c(1, 2))
 ## Plot proportion of variance explained
 plot(subct.pve, type="l", lwd=3)
 plot(subct.cumulative.pve, type="l", lwd=3)
-abline(h=0.9, col = "red")
+abline(h=0.9, col = "red",lty=2)
+title("Proportion of Variance Explained and Cumulative PVE at Subounty Level")
 
 ## This will put the next two plots side by side    
 par(mfrow=c(1, 2))
@@ -418,7 +440,8 @@ par(mfrow=c(1, 2))
 ## Plot proportion of variance explained
 plot(ct.pve, type="l", lwd=3)
 plot(ct.cumulative.pve, type="l", lwd=3)
-abline(h=0.9, col = "red")
+abline(h=0.9, col = "red",lty=2)
+title("Proportion of Variance Explained and Cumulative PVE at County Level")
 
 subct.min.pc = min(which(subct.cumulative.pve > .9))
 ct.min.pc = min(which(ct.cumulative.pve > .9))
@@ -478,7 +501,7 @@ sanmateo.pc5.cluster.df <- ct.pc5.clusters %>%
 ```
 
 
-```{r}
+```{r, echo=FALSE}
 census.ct.merge = left_join(sanmateo.census.cluster.df, census.ct, by = "County")
 census.merge.dis  <- dist(scale(census.ct.merge[,-c(1:3)], center=TRUE, scale=TRUE), method = "euclidean")
 ct.pc5.merge = left_join(sanmateo.pc5.cluster.df, census.ct, by = "County")
@@ -489,7 +512,7 @@ pc5.clust.dist = sum(pc5.merge.dis)
 ```
 
 
-```{r}
+```{r, echo=FALSE}
 census_cluster_plot = fviz_cluster(list(data = census.ct[,-c(1:2)], cluster = census.ct.subgrp), geom = "point", main="Hierarchical Clusters from Census Data")
 pc_cluster_plot = fviz_cluster(list(data = ct.pc5, cluster = ct.pc5.subgrp), geom = "point", main = "Hierarchical Clusters from PCA")
 
@@ -510,7 +533,7 @@ In order to train classification models, we need to combine `county_winner` and 
 This seemingly straightforward task is harder than it sounds. 
 The following code makes the necessary changes to merge them into `election.cl` for classification.
 
-```{r}
+```{r, echo=FALSE}
 tmpwinner <- county_winner %>% ungroup %>%
   mutate(state = state.name[match(state, state.abb)]) %>%               ## state abbreviations
   mutate_at(vars(state, county), tolower) %>%                           ## to all lowercase
@@ -529,7 +552,7 @@ election.cl = election.cl %>% select(-c(county, fips, state, votes, pct, total))
 ```
 
 Using the following code, partition data into 80% training and 20% testing:
-```{r}
+```{r, echo=FALSE}
 set.seed(10) 
 n <- nrow(election.cl)
 in.trn <- sample.int(n, 0.8*n) 
@@ -538,14 +561,14 @@ tst.cl <- election.cl[-in.trn,]
 ```
 
 Using the following code, define 10 cross-validation folds:
-```{r}
+```{r, echo=FALSE}
 set.seed(20) 
 nfold <- 10
 folds <- sample(cut(1:nrow(trn.cl), breaks=nfold, labels=FALSE))
 ```
 
 Using the following error rate function:
-```{r}
+```{r, echo=FALSE}
 calc_error_rate = function(predicted.value, true.value){
   return(mean(true.value!=predicted.value))
 }
@@ -557,7 +580,8 @@ rownames(records) = c("tree","logistic","lasso")
 
 17. Decision tree: train a decision tree by `cv.tree()`. Prune the resulting tree to minimize misclassification error. Be sure to use the `folds` from above for cross-validation. Visualize the trees before and after pruning. Save training and test errors to a `records` variable. Intepret and discuss the results of the decision tree analysis. Use this plot to tell a story about voting behavior in the US (remember the [NYT infographic?](https://archive.nytimes.com/www.nytimes.com/imagepages/2008/04/16/us/20080416_OBAMA_GRAPHIC.html))
     
-```{r}
+The first tree below shows the tree that is generated from using all of the regressors in the training data from the election data set is used to predict candidate outcome.
+```{r, echo=FALSE}
 election.tree = tree(candidate~.,data = trn.cl)
 draw.tree(tree = election.tree, size = 2, cex = .3, nodeinfo=TRUE)
 
@@ -565,17 +589,21 @@ election.tree.cv = cv.tree(election.tree, FUN = prune.misclass, K = 10, rand = f
 
 best.cv = min(election.tree.cv$size[which(election.tree.cv$dev==min(election.tree.cv$dev, na.rm = TRUE))])
 
+```
+
+This second tree below shows the pruned version of the original tree that is produced after usign a 10 fold cross-valication approach to determine the best size of tree to minimize classification error. This tree has been pruned to the size determined by that tuning parameter.
+```{r, echo=FALSE}
 pruned.election.tree = prune.tree(tree = election.tree, best = best.cv)
 
 draw.tree(tree = pruned.election.tree, size = 2, cex = .3, nodeinfo=TRUE)
 ```
 
 
-```{r}
+```{r, echo=FALSE}
 predict.tree.train = predict(pruned.election.tree, trn.cl, 
-                               type = "class")
+                               type = "vector")
 predict.tree.test = predict(pruned.election.tree, tst.cl, 
-                              type = "class")
+                              type = "vector")
 
 # calculate the training and test error and input values in records matrix for tree
 records[1,1] = calc_error_rate(predict.tree.train, trn.cl$candidate)
@@ -585,7 +613,7 @@ records[1,2] = calc_error_rate(predict.tree.test, tst.cl$candidate)
 
 18. Run a logistic regression to predict the winning candidate in each county.  Save training and test errors to the `records` variable.  What are the significant variables? Are these consistent with what you observed in the decision tree analysis? Interpret the meaning of a couple of the significant coefficients in terms of a unit change in the variables. Did your particular county (from question 13) results match the predicted results?  
 
-```{r}
+```{r, echo=FALSE}
 
 candidate_logistic <- glm(candidate~.,data = trn.cl, family = binomial)
 
@@ -610,7 +638,7 @@ The most significant variables in predicting the winninng candidate with a logis
 
 19.  You may notice that you get a warning `glm.fit: fitted probabilities numerically 0 or 1 occurred`.  As we discussed in class, this is an indication that we have perfect separation (some linear combination of variables _perfectly_ predicts the winner).  This is usually a sign that we are overfitting. One way to control overfitting in logistic regression is through regularization.  Use the `cv.glmnet` function from the `glmnet` library to run K-fold cross validation and select the best regularization parameter for the logistic regression under the LASSO penalty.  Reminder: set `alpha=1` to run LASSO.  What are the non-zero coefficients in the LASSO regression for the optimal value of $\lambda$? How do they compare to the unpenalized logistic regression?   Save training and test errors to the `records` variable.
 
-```{r}
+```{r, echo=FALSE}
 x.trn = model.matrix(candidate~.,trn.cl)[,-1]
 y.trn = trn.cl$candidate
 
@@ -630,29 +658,31 @@ bestlam = cv.out$lambda.min
 lasso.pred.train = predict(lasso.mod, s = bestlam, newx = x.trn)
 lasso.pred.test = predict(lasso.mod, s = bestlam, newx = x.tst)
 
-lasso.mse = mean((lasso.pred.test-y.test)^2)
+lasso.mse = mean((lasso.pred.test-y.tst)^2)
 
 records[3,1] = calc_error_rate(lasso.pred.train, y.trn)
 records[3,2] = calc_error_rate(lasso.pred.test, y.tst)
 ```
 
-```{r}
+```{r, echo=FALSE}
 x = model.matrix(candidate~.,election.cl)[,-1]
 y = election.cl$candidate %>% as.numeric()
 out=glmnet(x,y,alpha=1,lambda=grid)
 lasso.coef=predict(out,type="coefficients",s=bestlam)[1:20,]
 
-kable(lasso.coef)
+kable(lasso.coef %>% as.data.frame() %>% round(3), col.names = c("Coefficient Estimate"), caption = "Estimated Coefficient Values from LASSO Regression")  %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width=FALSE) %>% scroll_box(width = "100%")
 
 ```
 
-The non-zero coefficients for the LASSO model with the best lambda are IncomeErr, Service, OtherTransp, 
+The non-zero coefficients for the LASSO model are White, Citizen, Poverty, ChildPoverty, Professional, Service, Office, Production, Drive, Carpool, OtherTransp, and WorkAtHome.
 
 20.  Compute ROC curves for the decision tree, logistic regression and LASSO logistic regression using predictions on the test data.  Display them on the same plot.  Based on your classification results, discuss the pros and cons of the various methods.  Are the different classifiers more appropriate for answering different kinds of questions about the election?
 
-```{r}
+```{r, echo=FALSE}
 
-pred.tree <- prediction(predict.tree.test[,2], trn.cl$candidate)
+kable(records, col.names = c("Training Error", "Test Error"), caption = "Summary of Training and Test Errors Associated with Different Classification Models")  %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width=FALSE) %>% scroll_box(width = "100%")
+
+pred.tree <- prediction(predict.tree.train, trn.cl$candidate)
 perf.tree <- performance(pred.tree, "tpr", "fpr")
 
 pred.logistic = prediction(predict.logistic.test, trn.cl$candidate)
