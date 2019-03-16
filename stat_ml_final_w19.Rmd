@@ -43,6 +43,9 @@ library(class)
 library(glmnet)
 library(ROCR)
 library(factoextra)
+library(randomForest)
+library(gbm)
+library(e1071)
 ```
 
 
@@ -737,6 +740,120 @@ Some possibilities for further exploration are:
   * Data preprocessing: we aggregated sub-county level data before performing classification. Would classification at the sub-county level before determining the winner perform better? What implicit assumptions are we making?
 
   * Exploring additional classification methods: KNN, LDA, QDA, SVM, random forest, boosting etc. (You may research and use methods beyond those covered in this course). How do these compare to logistic regression and the tree method?
+
+# Bagging
+```{r}
+trn.cl.new <- droplevels(trn.cl)
+tst.cl.new <- droplevels(tst.cl)
+
+bag.candidates = randomForest(candidate ~ ., data=trn.cl.new , mtry=6, importance=TRUE) 
+bag.candidates
+
+plot(bag.candidates)
+legend("top", colnames(bag.candidates$err.rate),col=1:4,cex=0.8,fill=1:4)
+
+yhat.bag = predict(bag.candidates, newdata = tst.cl.new)
+
+# Confusion matrix
+bag.err = table(pred = yhat.bag, truth = tst.cl.new$candidate)
+test.bag.err = 1 - sum(diag(bag.err))/sum(bag.err)
+test.bag.err
+
+```
+
+We explored whether bagging would be an improved method to a single tree classification. Bagging is a specific type of random forest where m = p, so we specified that 6 predictors should be considered for each split in the tres (used in the `mtry` argument) based on the best.cv output from the original tree. The test set error rate of the bagged classification tree is `r round(test.bag.err,4)` which is an improvement by 4.22% from the test error rate using an optimally-pruned single tree which was (`r round(records[1,2],4)`).
+
+
+
+# Random Forest
+```{r}
+
+rf.candidates = randomForest(candidate ~ ., data=trn.cl.new , mtry=2, importance=TRUE) 
+rf.candidates
+plot(rf.candidates)
+
+yhat.rf = predict (rf.candidates, newdata = tst.cl.new)
+
+# Confusion matrix
+rf.err = table(pred = yhat.rf, truth = tst.cl.new$candidate)
+test.rf.err = 1 - sum(diag(rf.err))/sum(rf.err)
+test.rf.err
+
+```
+
+A random forest model was then conducted using m = $\sqrt p$ variables randomly sampled, so in this case 2 variables. While the overall test error is not very different between the bagging (`r round(test.bag.err,4)`) and random forest methods (`r round(test.rf.err,4)`), the class error for Hillary Clinton worsens from 0.2812 in the bagged forest and 0.3144 in the random forest model as the class error improves slightly for Donald Trump from 0.0192 to 0.0177 respectively. 
+
+
+
+```{r}
+
+importance(bag.candidates)
+importance(rf.candidates)
+
+varImpPlot(bag.candidates, sort=T, main="Variable Importance for bag.candidates", n.var=5)
+varImpPlot(rf.candidates, sort=T, main="Variable Importance for rf.candidates", n.var=5)
+
+```
+The results of both the bagged model and random forest model indicate that Transit is the most important variable in determining model accuracy and gini index. The top 5 variables are fairly conisistent between both models and between model accuracy and gini index, with White, Minority, Professional, and Unemployment appearing in both model accuracy importance figures and Income Per Capita ranked as the fifth most important variable for the gini index of the random forest model. Overall we can deduce that differences in race as well as type of employment are strong predictors in voting behavior. It makes sense that transit and income would be included as well as these go hand in hand with employment factors and proximity to urban areas which tend to have higher proportion of minority populations. The levels of importance only tell us the strength of the variables in producing a random forest model, however, not the implications or leanings of each variable. 
+
+
+# Boosting
+```{r}
+
+set.seed(1)
+boost.candidates = gbm(ifelse(candidate=="Donald Trump",1,0)~., data=trn.cl.new, 
+                     distribution="bernoulli", n.trees=500, interaction.depth=4)
+
+```
+
+```{r}
+
+summary(boost.candidates)
+
+```
+
+```{r}
+
+#partial dependence plots
+par(mfrow =c(1,2))
+plot(boost.candidates ,i="Transit")
+plot(boost.candidates ,i="White")
+
+```
+The above plots tell us that higher proportion of country transit ridership is negatively correlated with Trump winning the vote while higher proportions of white populations in a county is positively correlated with Trump winning the vote. 
+
+
+```{r}
+yhat.boost = predict(boost.candidates, newdata = tst.cl.new, n.trees = 500)
+
+# Confusion matrix
+boost.err = table(pred = yhat.boost, truth = tst.cl.new$candidate)
+
+test.boost.err = 1 - sum(diag(boost.err))/sum(boost.err)
+
+test.boost.err
+
+```
+The test error rate for boosting, `r round(test.boost.err, 4)`, is higher than that of bagging and random forest. 
+
+# Support Vector Model
+
+```{r}
+
+svm.candidates=svm(candidate ~ ., data=trn.cl.new, kernel="radial", cost=1,scale=TRUE)
+yhat.svm=predict(svm.candidates,tst.cl.new)
+summary(svm.candidates)
+smv.err = table(pred=yhat.svm, truth=tst.cl.new$candidate)
+
+svm.err = table(pred = yhat.svm, truth = tst.cl.new$candidate)
+test.svm.err = 1 - sum(diag(svm.err))/sum(svm.err)
+
+test.svm.err
+
+```
+The test error rate for support vector model, `r round(test.svm.err, 4)`, is very similar to that of the random forest model and lower than the boosting model. 
+
+
 
   * Bootstrap: Perform boostrap to generate plots similar to ISLR Figure 4.10/4.11. Discuss the results. 
   

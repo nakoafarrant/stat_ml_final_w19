@@ -26,3 +26,7 @@ gplots
 ROCR
 bindrcpp
 dendextend
+factoextra
+randomForest
+gbm
+e1071
